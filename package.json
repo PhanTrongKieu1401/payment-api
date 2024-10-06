@@ -7,7 +7,8 @@
     "node": "20.x"
   },
   "scripts": {
-    "test": "Server payment"
+    "test": "Server payment",
+    "start": "node api/index.js"
   },
   "author": "Phan Kieu",
   "license": "ISC",
