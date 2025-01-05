@@ -1,6 +1,8 @@
 const express = require("express");
 const axios = require("axios");
 const Stomp = require('stompjs');
+const { spawn } = require('child_process');
+const path = require('path');
 const WebSocket = require('ws');
 const cors = require("cors");
 
@@ -17,7 +19,8 @@ const MomoRequest = {
     ids: String
 }
 
-const socket = new WebSocket('ws://localhost:8080/ws');
+// const socket = new WebSocket('ws://localhost:8080/ws');
+const socket = new WebSocket('wss://adapted-ox-suitably.ngrok-free.app/ws');
 const stompClient = Stomp.over(socket);
 
 let reconnectInterval = 10000; 
@@ -34,25 +37,28 @@ stompClient.connect({}, (frame) => {
     // }, 30000);
 }, (error) => {
     console.error('WebSocket connection error:', error);
-    if (reconnectAttempts < maxReconnectAttempts) {
-        reconnectAttempts++;
-        console.log(`Attempting to reconnect (#${reconnectAttempts})...`);
-        setTimeout(stompConnect.connect, reconnectInterval); 
-    } else {
-        console.error('Max reconnect attempts reached. Could not reconnect to WebSocket.');
-    }
+    // if (reconnectAttempts < maxReconnectAttempts) {
+    //     reconnectAttempts++;
+    //     console.log(`Attempting to reconnect (#${reconnectAttempts})...`);
+    //     setTimeout(stompConnect.connect, reconnectInterval); 
+    // } else {
+    //     console.error('Max reconnect attempts reached. Could not reconnect to WebSocket.');
+    // }
 });
 
 app.post("/api/payment-with-momo", async (req, res) => {
     const { partnerCode, orderId, amount, ids } = req.body;
 
+    console.log('Received data:', req.body);
+
     var accessKey = 'F8BBA842ECF85';
     var secretKey = 'K951B6PE1waDMi640xX08PD3vg6EkVlz';
-    var orderInfo = 'Thanh toán đơn hàng Kikimoon supermarket';
+    var orderInfo = 'Thanh toán đơn hàng siêu thị Kikimoon';
     // var partnerCode = 'MOMO';
-    // var redirectUrl = `http://localhost:5173/order/${orderId}`;
-    var redirectUrl = 'http://localhost:5173/order/' + orderId;
-    var ipnUrl = 'https://payment-mv-api.vercel.app/callback';
+    // var redirectUrl = `http://localhost:5173/order/${orderId}`;//không dùng
+    // var redirectUrl = 'http://localhost:5173/orders/' + orderId;//dùng cho local
+    var redirectUrl = 'https://phantrongkieu1401.github.io/management-supermarket-system-gui/#/orders' + orderId;//dùng cho deploy
+    var ipnUrl = 'https://59ac-2402-800-599a-d876-c852-99f9-917d-1868.ngrok-free.app/callback';
     var requestType = 'payWithMethod';
     // var amount = '100000';
     // var orderId = partnerCode + new Date().getTime();
@@ -146,7 +152,28 @@ app.post("/callback", async (req, res) => {
         console.error('WebSocket connection is not open');
     }
     return res.status(200).json(req.body);
-})
+});
+
+app.post('/api/recommend', (req, res) => {
+    const behaviorLogs = req.body.behaviorLogs; 
+
+    if (!behaviorLogs || !Array.isArray(behaviorLogs)) {
+        return res.status(400).json({ error: 'Invalid input data' });
+    }
+
+    const pythonFilePath = path.join(__dirname, 'recommendation.py');
+
+    const python = spawn('python', [pythonFilePath , JSON.stringify(behaviorLogs)]);
+
+    python.stdout.on('data', (behaviorLogs) => {
+        res.json(JSON.parse(behaviorLogs.toString()));
+    });
+
+    python.stderr.on('data', (behaviorLogs) => {
+        console.error(`Error: ${behaviorLogs}`);
+        res.status(500).json({ error: 'Python script error', details: behaviorLogs.toString() });
+    });
+});
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
